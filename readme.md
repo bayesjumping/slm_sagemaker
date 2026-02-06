@@ -54,7 +54,6 @@ sequenceDiagram
     API->>+Lambda: Invoke with payload
     Note over Lambda: Extract prompt<br/>& parameters
     Lambda->>+SageMaker: invoke_endpoint()
-    Note over SageMaker: Scale up if cold<br/>(0-60 seconds)
     SageMaker->>+Model: Generate text
     Note over Model: Process prompt<br/>with Hermes-3-8B
     Model-->>-SageMaker: Generated response
@@ -72,13 +71,6 @@ sequenceDiagram
 6. **Instance Ready**: Real-time endpoint is always running (no cold starts after initial deployment)
 7. **Text Generation**: The Hermes-3 model processes the prompt and generates a response
 8. **Response Formatting**: Lambda formats the TGI output and returns it to the client
-
-**Why Real-Time vs Serverless?**
-- Real-time endpoints use GPU instances (ml.g4dn.xlarge with 16GB GPU memory, Tesla T4)
-- No 3GB/6GB memory quota limitations
-- Consistent low-latency inference (no cold starts after deployment)
-- Better for production workloads with steady traffic
-- Cost: ~$0.736/hour (~$530/month) vs serverless pay-per-request pricing
 
 This CDK project deploys:
 - **SageMaker Real-Time Endpoint** running Hermes-3-Llama-3.1-8B with TGI (Text Generation Inference) on ml.g4dn.xlarge
@@ -324,7 +316,6 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - **Delete when not in use**: `make destroy PROFILE=ml-sage REGION=eu-west-2` (most effective)
 - **ml.g4dn.xlarge**: Best price/performance ratio for 8B models (~27% cheaper than ml.g5.xlarge)
 - **Upgrade to ml.g5.xlarge**: If you need faster inference (~37% more expensive but newer GPU)
-- **Serverless alternative**: For sporadic usage (requires 6GB quota increase, pay-per-request)
 
 ## Troubleshooting
 
@@ -472,15 +463,10 @@ Once deletion completes (status will be `DELETE_COMPLETE` or stack not found), r
 make deploy PROFILE=ml-sage REGION=eu-west-2
 ```
 
-### Cold Start Latency
-First invocation takes 30-60s as the model loads. Consider:
-- Using provisioned concurrency for production
-- Implementing warmup Lambda to keep endpoint hot
-
 ### Memory Limits
-The 8B model works with 3GB (default quota) but 6GB provides better performance. For larger models:
-- Use real-time endpoints with GPU instances
-- Switch to ml.g5.xlarge or larger
+The 8B model requires GPU instances for optimal performance. For larger models:
+- Use real-time endpoints with larger GPU instances
+- Switch to ml.g4dn.2xlarge, ml.g5.xlarge or larger
 
 ### API Key Issues
 ```bash
