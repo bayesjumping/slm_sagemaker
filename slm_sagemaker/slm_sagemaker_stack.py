@@ -11,13 +11,13 @@ class SlmSagemakerStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Deploy SageMaker Real-Time Endpoint with Hermes-3-Llama-3.1-8B
-        # Using ml.g5.xlarge instance with GPU (24GB GPU memory, 4 vCPUs)
+        # Using ml.g4dn.xlarge instance with GPU (16GB GPU memory, Tesla T4)
         sagemaker_construct = SageMakerServerlessConstruct(
             self,
             "SageMakerServerless",
             model_name="Hermes-3-Llama-3-1-8B",
             hf_model_id="NousResearch/Hermes-3-Llama-3.1-8B",
-            instance_type="ml.g5.xlarge",  # GPU instance - ~$1.01/hour
+            instance_type="ml.g4dn.xlarge",  # GPU instance - ~$0.736/hour (~27% cheaper than g5)
             initial_instance_count=1,
         )
 

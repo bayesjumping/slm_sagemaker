@@ -4,7 +4,7 @@
 
 Deploy the **NousResearch/Hermes-3-Llama-3.1-8B** model as a SageMaker Real-Time Inference Endpoint with API Gateway integration and API key authentication.
 
-> **⚠️ COST WARNING**: This deployment uses a real-time ml.g5.xlarge GPU instance that runs 24/7 and costs approximately **$1.01/hour (~$730/month)**. The endpoint continues billing even when not processing requests. Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
+> **⚠️ COST WARNING**: This deployment uses a real-time ml.g4dn.xlarge GPU instance that runs 24/7 and costs approximately **$0.736/hour (~$530/month)**. The endpoint continues billing even when not processing requests. Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
 
 ## Architecture
 
@@ -34,7 +34,7 @@ architecture-beta
 - **API Gateway**: REST API with `/invoke` endpoint for client requests
 - **API Key**: Authenticates and rate-limits API requests (50 req/sec, 10k/day)
 - **Lambda Function**: Processes requests and invokes the SageMaker endpoint
-- **SageMaker Endpoint**: Real-time inference endpoint on ml.g5.xlarge GPU instance (24GB GPU memory, 4 vCPUs)
+- **SageMaker Endpoint**: Real-time inference endpoint on ml.g4dn.xlarge GPU instance (16GB GPU memory, Tesla T4)
 - **Hermes-3-8B Model**: HuggingFace TGI container serving the language model
 
 ### Request Flow
@@ -74,14 +74,14 @@ sequenceDiagram
 8. **Response Formatting**: Lambda formats the TGI output and returns it to the client
 
 **Why Real-Time vs Serverless?**
-- Real-time endpoints use GPU instances (ml.g5.xlarge with 24GB GPU memory)
+- Real-time endpoints use GPU instances (ml.g4dn.xlarge with 16GB GPU memory, Tesla T4)
 - No 3GB/6GB memory quota limitations
 - Consistent low-latency inference (no cold starts after deployment)
 - Better for production workloads with steady traffic
-- Cost: ~$1.01/hour (~$730/month) vs serverless pay-per-request pricing
+- Cost: ~$0.736/hour (~$530/month) vs serverless pay-per-request pricing
 
 This CDK project deploys:
-- **SageMaker Real-Time Endpoint** running Hermes-3-Llama-3.1-8B with TGI (Text Generation Inference) on ml.g5.xlarge
+- **SageMaker Real-Time Endpoint** running Hermes-3-Llama-3.1-8B with TGI (Text Generation Inference) on ml.g4dn.xlarge
 - **API Gateway** REST API with Lambda integration
 - **Lambda function** to invoke the SageMaker endpoint
 - **API Key authentication** with usage plans and throttling
@@ -289,9 +289,10 @@ Configure in [slm_sagemaker/slm_sagemaker_stack.py](slm_sagemaker/slm_sagemaker_
 - `hf_model_id`: HuggingFace model ID
 
 **Instance Types:**
-- `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory, ~$1.01/hour
-- `ml.g5.2xlarge`: 8 vCPUs, 24GB GPU memory, ~$1.52/hour  
-- `ml.g5.4xlarge`: 16 vCPUs, 24GB GPU memory, ~$2.54/hour
+- `ml.g4dn.xlarge`: 4 vCPUs, 16GB GPU memory (Tesla T4), ~$0.736/hour ⭐ **Current/Recommended**
+- `ml.g4dn.2xlarge`: 8 vCPUs, 32GB GPU memory (Tesla T4), ~$1.05/hour
+- `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory (A10G), ~$1.01/hour
+- `ml.g5.2xlarge`: 8 vCPUs, 24GB GPU memory (A10G), ~$1.52/hour
 
 ### API Gateway
 
@@ -305,7 +306,7 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 
 **SageMaker Real-Time Endpoint:**
 - Billed per hour while endpoint is running (always-on)
-- ml.g5.xlarge: ~$1.01/hour (~$730/month)
+- ml.g4dn.xlarge: ~$0.736/hour (~$530/month)
 - No cold starts after initial deployment
 - Can stop/start endpoint to reduce costs when not in use
 
@@ -317,14 +318,83 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - Minimal cost for invocation wrapper
 - Included in AWS Free Tier (1M requests/month)
 
-**Estimated monthly cost:** ~$730-$800/month for 24/7 operation with ml.g5.xlarge
+**Estimated monthly cost:** ~$530-$550/month for 24/7 operation with ml.g4dn.xlarge
 
-To reduce costs:
-- Delete the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
-- Use smaller instance if sufficient (ml.g5.xlarge is minimum for GPU inference)
-- Consider serverless endpoints for sporadic usage (requires quota increase to 6GB)
+**Cost Optimization:**
+- **Delete when not in use**: `make destroy PROFILE=ml-sage REGION=eu-west-2` (most effective)
+- **ml.g4dn.xlarge**: Best price/performance ratio for 8B models (~27% cheaper than ml.g5.xlarge)
+- **Upgrade to ml.g5.xlarge**: If you need faster inference (~37% more expensive but newer GPU)
+- **Serverless alternative**: For sporadic usage (requires 6GB quota increase, pay-per-request)
 
 ## Troubleshooting
+
+### Health Check Failure (Primary Container Ping Failed)
+
+**Error:** `The primary container for production variant AllTraffic did not pass the ping health check`
+
+This is the most common deployment error and indicates the model container failed to start or respond to health checks.
+
+**Root Causes:**
+1. **Model Download Failure** - Container can't download the model from HuggingFace
+2. **Insufficient Memory** - Model requires more GPU memory than available
+3. **Container Configuration** - Incorrect TGI environment variables
+4. **Model Compatibility** - Model format incompatible with TGI version
+
+**Debugging Steps:**
+
+1. **Check CloudWatch Logs:**
+   ```bash
+   # Find the log group (replace with actual endpoint name)
+   aws logs describe-log-groups \
+     --profile ml-sage \
+     --region eu-west-2 \
+     --log-group-name-prefix /aws/sagemaker/Endpoints/Hermes
+   
+   # Get recent logs
+   aws logs tail /aws/sagemaker/Endpoints/Hermes-3-Llama-3-1-8B-endpoint/AllTraffic \
+     --profile ml-sage \
+     --region eu-west-2 \
+     --follow
+   ```
+
+2. **Check Endpoint Status:**
+   ```bash
+   aws sagemaker describe-endpoint \
+     --endpoint-name Hermes-3-Llama-3-1-8B-endpoint \
+     --profile ml-sage \
+     --region eu-west-2 \
+     --query '{Status:EndpointStatus,Reason:FailureReason}'
+   ```
+
+**Solutions:**
+
+**Option 1 - Use Different Model (Recommended for testing):**
+Try a smaller, well-tested model to verify infrastructure:
+- Update `hf_model_id` in [slm_sagemaker/slm_sagemaker_stack.py](slm_sagemaker/slm_sagemaker_stack.py):
+  ```python
+  hf_model_id="TinyLlama/TinyLlama-1.1B-Chat-v1.0",  # Smaller test model
+  ```
+
+**Option 2 - Use Larger Instance:**
+The 8B model may need more GPU memory:
+- Update to `ml.g5.2xlarge` or `ml.g5.4xlarge` in the stack
+
+**Option 3 - Fix Container Configuration:**
+The stack has been updated with correct TGI environment variables including:
+- `SM_NUM_GPUS=1` - Tells TGI to use 1 GPU
+- `MAX_BATCH_PREFILL_TOKENS` and `MAX_BATCH_TOTAL_TOKENS` - Memory management
+
+**Option 4 - Use Pre-Downloaded Model:**
+For production, consider uploading the model to S3 and using `model_data_url` instead of downloading from HuggingFace Hub.
+
+**After making changes, redeploy:**
+```bash
+# Delete failed stack
+make destroy PROFILE=ml-sage REGION=eu-west-2
+
+# Deploy with changes
+make deploy PROFILE=ml-sage REGION=eu-west-2
+```
 
 ### Insufficient Memory Error (Real-Time Endpoint)
 
@@ -334,10 +404,11 @@ To reduce costs:
 - CPU instances (use GPU instances instead)
 - Insufficient container memory configuration
 
-**Fix:** The stack now uses `ml.g5.xlarge` with 24GB GPU memory, which is sufficient for the Hermes-3-8B model.
+**Fix:** The stack now uses `ml.g4dn.xlarge` with 16GB GPU memory (Tesla T4), which is sufficient for the Hermes-3-8B model.
 
 If you still encounter issues:
-- Try `ml.g5.2xlarge` or `ml.g5.4xlarge` for more resources
+- Try `ml.g4dn.2xlarge` for more GPU memory (32GB)
+- Upgrade to `ml.g5.xlarge` or `ml.g5.2xlarge` for newer GPUs (A10G)
 - Check CloudWatch Logs for container startup errors
 
 ### API Gateway CloudWatch Logs Error
