@@ -1,6 +1,6 @@
 # SageMaker Real-Time LLM Endpoint
 
-[![Test and Lint](https://github.com/YOUR_USERNAME/slm_sagemaker/actions/workflows/test-and-lint.yml/badge.svg)](https://github.com/YOUR_USERNAME/slm_sagemaker/actions/workflows/test-and-lint.yml)
+[![Test and Lint](https://github.com/bayesjumping/slm_sagemaker/actions/workflows/test-and-lint.yml/badge.svg)](https://github.com/bayesjumping/slm_sagemaker/actions/workflows/test-and-lint.yml)
 
 Deploy the **NousResearch/Hermes-3-Llama-3.1-8B** model as a SageMaker Real-Time Inference Endpoint with API Gateway integration and API key authentication.
 
