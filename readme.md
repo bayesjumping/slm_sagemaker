@@ -4,7 +4,7 @@
 
 Deploy the **NousResearch/Hermes-3-Llama-3.1-8B** model as a SageMaker Real-Time Inference Endpoint with API Gateway integration and API key authentication.
 
-> **⚠️ COST WARNING**: This deployment uses a real-time ml.g4dn.xlarge GPU instance that runs 24/7 and costs approximately **$0.736/hour (~$530/month)**. The endpoint continues billing even when not processing requests. Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
+> **⚠️ COST WARNING**: This deployment uses a real-time ml.g4dn.2xlarge GPU instance that runs 24/7 and costs approximately **$1.05/hour (~$756/month)**. The endpoint continues billing even when not processing requests. The larger instance with 32GB GPU memory is required for 8B models. Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
 
 ## Architecture
 
@@ -34,7 +34,7 @@ architecture-beta
 - **API Gateway**: REST API with `/invoke` endpoint for client requests
 - **API Key**: Authenticates and rate-limits API requests (50 req/sec, 10k/day)
 - **Lambda Function**: Processes requests and invokes the SageMaker endpoint
-- **SageMaker Endpoint**: Real-time inference endpoint on ml.g4dn.xlarge GPU instance (16GB GPU memory, Tesla T4)
+- **SageMaker Endpoint**: Real-time inference endpoint on ml.g4dn.2xlarge GPU instance (32GB GPU memory, Tesla T4, 4-bit quantized)
 - **Hermes-3-8B Model**: HuggingFace TGI container serving the language model
 
 ### Request Flow
@@ -94,8 +94,7 @@ git clone <repository-url>
 cd slm_sagemaker
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate.bat
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+make install
 ```
 
 ### 2. AWS Authentication
@@ -310,12 +309,13 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - Minimal cost for invocation wrapper
 - Included in AWS Free Tier (1M requests/month)
 
-**Estimated monthly cost:** ~$530-$550/month for 24/7 operation with ml.g4dn.xlarge
+**Estimated monthly cost:** ~$756/month for 24/7 operation with ml.g4dn.2xlarge (with 4-bit quantization)
 
 **Cost Optimization:**
 - **Delete when not in use**: `make destroy PROFILE=ml-sage REGION=eu-west-2` (most effective)
-- **ml.g4dn.xlarge**: Best price/performance ratio for 8B models (~27% cheaper than ml.g5.xlarge)
-- **Upgrade to ml.g5.xlarge**: If you need faster inference (~37% more expensive but newer GPU)
+- **ml.g4dn.2xlarge with quantization**: Balances memory requirements with cost for 8B models
+- **Alternative: Use smaller model**: Try TinyLlama-1.1B with ml.g4dn.xlarge ($530/month) for testing
+- **Upgrade to ml.g5.xlarge**: If you need faster inference with 24GB GPU memory (~$730/month)
 
 ## Troubleshooting
 
@@ -359,21 +359,24 @@ This is the most common deployment error and indicates the model container faile
 
 **Solutions:**
 
-**Option 1 - Use Different Model (Recommended for testing):**
+**Option 1 - Current Configuration (Recommended):**
+The stack is now configured with:
+- **ml.g4dn.2xlarge** instance (32GB GPU memory) 
+- **4-bit quantization** (`QUANTIZE=bitsandbytes-nf4`) to reduce memory footprint
+- This configuration should handle the 8B model with ~$756/month cost
+
+**Option 2 - Use Smaller Model (For testing infrastructure):**
 Try a smaller, well-tested model to verify infrastructure:
 - Update `hf_model_id` in [slm_sagemaker/slm_sagemaker_stack.py](slm_sagemaker/slm_sagemaker_stack.py):
   ```python
   hf_model_id="TinyLlama/TinyLlama-1.1B-Chat-v1.0",  # Smaller test model
+  instance_type="ml.g4dn.xlarge",  # Can use smaller instance ($530/month)
   ```
 
-**Option 2 - Use Larger Instance:**
-The 8B model may need more GPU memory:
-- Update to `ml.g5.2xlarge` or `ml.g5.4xlarge` in the stack
-
-**Option 3 - Fix Container Configuration:**
-The stack has been updated with correct TGI environment variables including:
-- `SM_NUM_GPUS=1` - Tells TGI to use 1 GPU
-- `MAX_BATCH_PREFILL_TOKENS` and `MAX_BATCH_TOTAL_TOKENS` - Memory management
+**Option 3 - Remove Quantization (Higher memory, faster inference):**
+If you prefer full precision without quantization:
+- Remove `QUANTIZE` environment variable from [sagemaker_construct.py](slm_sagemaker/constructs/sagemaker_construct.py)
+- May need ml.g4dn.4xlarge (64GB) or ml.g5.2xlarge (48GB) - higher cost
 
 **Option 4 - Use Pre-Downloaded Model:**
 For production, consider uploading the model to S3 and using `model_data_url` instead of downloading from HuggingFace Hub.

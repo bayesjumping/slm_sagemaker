@@ -17,7 +17,7 @@ class SageMakerServerlessConstruct(Construct):
         construct_id: str,
         model_name: str = "Hermes-3-Llama-3.1-8B",
         hf_model_id: str = "NousResearch/Hermes-3-Llama-3.1-8B",
-        instance_type: str = "ml.g4dn.xlarge",  # GPU instance with 16GB GPU memory (Tesla T4) - cost effective
+        instance_type: str = "ml.g4dn.2xlarge",  # GPU instance with 32GB GPU memory (Tesla T4) - enough for 8B models
         initial_instance_count: int = 1,
         **kwargs,
     ) -> None:
@@ -29,7 +29,7 @@ class SageMakerServerlessConstruct(Construct):
             construct_id: Construct ID
             model_name: Name for the SageMaker model
             hf_model_id: HuggingFace model ID
-            instance_type: Instance type (ml.g4dn.xlarge recommended, ml.g5.xlarge for faster inference)
+            instance_type: Instance type (ml.g4dn.2xlarge recommended for 8B models with quantization)
             initial_instance_count: Number of instances (default: 1)
         """
         super().__init__(scope, construct_id, **kwargs)
@@ -50,9 +50,10 @@ class SageMakerServerlessConstruct(Construct):
         # Using HuggingFace TGI inference container
         # The image is dynamically resolved based on the stack's region
         from aws_cdk import Stack
+
         stack = Stack.of(self)
         region = stack.region
-        
+
         tgi_image_uri = sagemaker.CfnModel.ContainerDefinitionProperty(
             image=f"763104351884.dkr.ecr.{region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.1-tgi2.0.1-gpu-py310-cu121-ubuntu22.04",
             environment={
@@ -63,6 +64,7 @@ class SageMakerServerlessConstruct(Construct):
                 "SM_NUM_GPUS": "1",
                 "MAX_BATCH_PREFILL_TOKENS": "4096",
                 "MAX_BATCH_TOTAL_TOKENS": "8192",
+                "QUANTIZE": "bitsandbytes-nf4",  # 4-bit quantization to reduce memory
                 "HUGGING_FACE_HUB_TOKEN": "",  # Add token via env if needed for gated models
             },
         )

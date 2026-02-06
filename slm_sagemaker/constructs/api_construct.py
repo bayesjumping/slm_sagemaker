@@ -49,9 +49,7 @@ class ApiGatewayConstruct(Construct):
         lambda_role.add_to_policy(
             iam.PolicyStatement(
                 actions=["sagemaker:InvokeEndpoint"],
-                resources=[
-                    f"arn:aws:sagemaker:*:*:endpoint/{endpoint_name}"
-                ],
+                resources=[f"arn:aws:sagemaker:*:*:endpoint/{endpoint_name}"],
             )
         )
 
@@ -112,9 +110,7 @@ class ApiGatewayConstruct(Construct):
             integration_responses=[
                 apigw.IntegrationResponse(
                     status_code="200",
-                    response_templates={
-                        "application/json": ""
-                    },
+                    response_templates={"application/json": ""},
                 )
             ],
         )
@@ -130,9 +126,7 @@ class ApiGatewayConstruct(Construct):
             method_responses=[
                 apigw.MethodResponse(
                     status_code="200",
-                    response_models={
-                        "application/json": apigw.Model.EMPTY_MODEL
-                    },
+                    response_models={"application/json": apigw.Model.EMPTY_MODEL},
                 )
             ],
         )

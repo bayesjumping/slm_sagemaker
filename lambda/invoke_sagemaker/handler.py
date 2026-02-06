@@ -82,11 +82,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({
-                "generated_text": generated_text,
-                "prompt": prompt,
-                "parameters": generation_config,
-            }),
+            "body": json.dumps(
+                {
+                    "generated_text": generated_text,
+                    "prompt": prompt,
+                    "parameters": generation_config,
+                }
+            ),
         }
 
     except json.JSONDecodeError as e:
@@ -101,8 +103,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({
-                "error": "Failed to invoke SageMaker endpoint",
-                "message": str(e),
-            }),
+            "body": json.dumps(
+                {
+                    "error": "Failed to invoke SageMaker endpoint",
+                    "message": str(e),
+                }
+            ),
         }
