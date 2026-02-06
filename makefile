@@ -1,6 +1,6 @@
 # Makefile for AWS CDK Python project
 
-.PHONY: help bootstrap deploy diff synth destroy sso-login deploy-no-rollback
+.PHONY: help bootstrap deploy diff synth destroy sso-login deploy-no-rollback lint lint-fix test install
 
 # Default AWS profile and region
 PROFILE ?= ml-sage
@@ -8,6 +8,7 @@ REGION ?= us-east-1
 
 help:
 	@echo "Available targets:"
+	@echo "  install            - Install Python dependencies (dev and runtime)"
 	@echo "  sso-login          - Log in to AWS SSO with your profile"
 	@echo "  bootstrap          - Run cdk bootstrap"
 	@echo "  deploy             - Deploy CDK stack (requires SSO login)"
@@ -15,6 +16,9 @@ help:
 	@echo "  diff               - Show differences between deployed stack and local"
 	@echo "  synth              - Synthesize CloudFormation template"
 	@echo "  destroy            - Destroy CDK stack"
+	@echo "  lint               - Run code style checks (ruff and black)"
+	@echo "  lint-fix           - Auto-fix code style issues"
+	@echo "  test               - Run unit tests with coverage"
 	@echo ""
 	@echo "To use a different AWS profile: make <target> PROFILE=your-profile"
 	@echo "To use a different region: make <target> REGION=your-region"
@@ -22,6 +26,13 @@ help:
 	@echo "Deployment steps:"
 	@echo "  1. make sso-login PROFILE=ml-sage"
 	@echo "  2. make deploy PROFILE=ml-sage REGION=us-east-1"
+
+# Install dependencies
+install:
+	@echo "Installing Python dependencies..."
+	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
+	@echo "✅ Dependencies installed!"
 
 # Log in to AWS SSO
 sso-login:
@@ -71,3 +82,30 @@ synth:
 
 destroy:
 	AWS_REGION=$(REGION) cdk destroy --profile $(PROFILE)
+
+# Linting and code style
+lint:
+	@echo "Running ruff checks..."
+	@ruff check .
+	@echo ""
+	@echo "Running black checks..."
+	@black --check .
+	@echo ""
+	@echo "✅ All linting checks passed!"
+
+lint-fix:
+	@echo "Fixing ruff issues..."
+	@ruff check . --fix
+	@echo ""
+	@echo "Formatting with black..."
+	@black .
+	@echo ""
+	@echo "✅ Linting fixes applied!"
+
+# Testing
+test:
+	@echo "Running unit tests with coverage..."
+	@pytest tests/unit/ -v --cov=slm_sagemaker --cov-report=term-missing
+	@echo ""
+	@echo "✅ Tests complete!"
+

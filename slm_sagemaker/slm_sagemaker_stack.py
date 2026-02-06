@@ -12,7 +12,7 @@ class SlmSagemakerStack(Stack):
 
         # Deploy SageMaker Real-Time Endpoint with Hermes-3-Llama-3.1-8B
         # Using ml.g4dn.xlarge instance with GPU (16GB GPU memory, Tesla T4)
-        sagemaker_construct = SageMakerServerlessConstruct(
+        _sagemaker_construct = SageMakerServerlessConstruct(
             self,
             "SageMakerServerless",
             model_name="Hermes-3-Llama-3-1-8B",
@@ -22,9 +22,9 @@ class SlmSagemakerStack(Stack):
         )
 
         # Deploy API Gateway with Lambda integration
-        api_construct = ApiGatewayConstruct(
+        _api_construct = ApiGatewayConstruct(
             self,
             "ApiGateway",
-            endpoint_name=sagemaker_construct.endpoint_name,
+            endpoint_name=_sagemaker_construct.endpoint_name,
             api_name="Hermes-3-LLM-API",
         )

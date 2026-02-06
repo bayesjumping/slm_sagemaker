@@ -25,7 +25,8 @@ def test_stack_creates_api_gateway():
     # Verify API Gateway resources are created
     template.resource_count_is("AWS::ApiGateway::RestApi", 1)
     template.resource_count_is("AWS::ApiGateway::ApiKey", 1)
-    template.resource_count_is("AWS::Lambda::Function", 1)
+    # Note: CDK creates 2 Lambda functions (our function + log retention custom resource)
+    template.resource_count_is("AWS::Lambda::Function", 2)
 
 
 def test_stack_creates_required_iam_roles():
@@ -34,5 +35,9 @@ def test_stack_creates_required_iam_roles():
     stack = SlmSagemakerStack(app, "slm-sagemaker")
     template = assertions.Template.from_stack(stack)
 
-    # Verify IAM roles for SageMaker and Lambda
-    template.resource_count_is("AWS::IAM::Role", 2)
+    # Verify IAM roles:
+    # 1. SageMaker execution role
+    # 2. Lambda execution role
+    # 3. API Gateway CloudWatch Logs role
+    # 4. Lambda service role (auto-created by CDK)
+    template.resource_count_is("AWS::IAM::Role", 4)

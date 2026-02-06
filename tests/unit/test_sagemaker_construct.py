@@ -10,7 +10,7 @@ def test_sagemaker_construct_creates_model():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
     
-    construct = SageMakerServerlessConstruct(
+    _construct = SageMakerServerlessConstruct(
         stack,
         "TestSageMaker",
         model_name="TestModel",
@@ -36,7 +36,7 @@ def test_sagemaker_construct_creates_endpoint_config():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
     
-    construct = SageMakerServerlessConstruct(
+    _construct = SageMakerServerlessConstruct(
         stack,
         "TestSageMaker",
         instance_type="ml.g5.2xlarge",
@@ -67,7 +67,7 @@ def test_sagemaker_construct_creates_endpoint():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
     
-    construct = SageMakerServerlessConstruct(
+    _construct = SageMakerServerlessConstruct(
         stack,
         "TestSageMaker",
     )
@@ -83,7 +83,7 @@ def test_sagemaker_construct_creates_iam_role():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
     
-    construct = SageMakerServerlessConstruct(
+    _construct = SageMakerServerlessConstruct(
         stack,
         "TestSageMaker",
     )
