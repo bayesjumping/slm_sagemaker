@@ -270,18 +270,64 @@ If you need 6GB for better performance:
    - Change `memory_size_in_mb=3072` to `memory_size_in_mb=6144`
    - Redeploy: `make deploy PROFILE=ml-sage REGION=eu-west-2`
 
+### API Gateway CloudWatch Logs Error
+
+**Error:** `CloudWatch Logs role ARN must be set in account settings to enable logging`
+
+**Solution:** This error occurs when API Gateway logging is enabled but the account doesn't have a CloudWatch Logs role configured. The stack now creates the role and disables logging by default.
+
+**Optional - To enable API Gateway logging:**
+
+1. After successful deployment, the stack outputs `ApiGatewayLogsRoleArn`. Use it to configure the account:
+   ```bash
+   # Get the role ARN from deployment outputs
+   ROLE_ARN=$(aws cloudformation describe-stacks \
+     --stack-name SlmSagemakerStack \
+     --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayApiGatewayLogsRoleArn`].OutputValue' \
+     --output text \
+     --profile ml-sage \
+     --region eu-west-2)
+   
+   # Set the CloudWatch role for API Gateway in your account
+   aws apigateway update-account \
+     --patch-operations op=replace,path=/cloudwatchRoleArn,value=$ROLE_ARN \
+     --profile ml-sage \
+     --region eu-west-2
+   ```
+
+2. Then update the API construct to enable logging and redeploy.
+
 ### Failed Stack Cleanup
 
-If deployment fails with `ROLLBACK_COMPLETE`, delete the failed stack:
+If deployment fails with `ROLLBACK_COMPLETE` or rollback is taking too long:
 
+**Fast approach - Delete the stack directly:**
 ```bash
-# Delete via CLI
+# Stop waiting for rollback and delete immediately
 aws cloudformation delete-stack --stack-name SlmSagemakerStack --profile ml-sage --region eu-west-2
 
 # Or via Makefile
 make destroy PROFILE=ml-sage REGION=eu-west-2
+```
 
-# Wait for deletion, then redeploy
+**Prevent rollback on future deployments (faster debugging):**
+```bash
+# Deploy with --no-rollback to keep failed resources for inspection
+AWS_REGION=eu-west-2 cdk deploy --profile ml-sage --no-rollback
+```
+
+**Check deletion status:**
+```bash
+aws cloudformation describe-stacks \
+  --stack-name SlmSagemakerStack \
+  --profile ml-sage \
+  --region eu-west-2 \
+  --query 'Stacks[0].StackStatus' \
+  --output text
+```
+
+Once deletion completes (status will be `DELETE_COMPLETE` or stack not found), redeploy:
+```bash
 make deploy PROFILE=ml-sage REGION=eu-west-2
 ```
 
@@ -314,11 +360,8 @@ Deployment is done manually using the Makefile commands for better control over 
 
 ### Optional: Setup Coverage Reporting
 
-Required secrets in your GitHub repository:
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-- `CODECOV_TOKEN` (optional, for coverage reports)
+To enable code coverage reporting with Codecov, add this secret to your GitHub repository:
+- `CODECOV_TOKEN` - Get this from [codecov.io](https://codecov.io) after signing up
 
 ## License
 

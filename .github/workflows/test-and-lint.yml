@@ -29,12 +29,6 @@ jobs:
       - name: Run unit tests
         run: |
           pytest tests/unit/ -v --cov=slm_sagemaker --cov-report=term-missing
-      
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     name: Lint Code

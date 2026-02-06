@@ -71,7 +71,20 @@ class ApiGatewayConstruct(Construct):
             log_retention=logs.RetentionDays.ONE_WEEK,
         )
 
-        # Create REST API
+        # Create CloudWatch Logs role for API Gateway (if not already set in account)
+        api_gateway_logs_role = iam.Role(
+            self,
+            "ApiGatewayLogsRole",
+            assumed_by=iam.ServicePrincipal("apigateway.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+                ),
+            ],
+        )
+
+        # Create REST API with CloudWatch logging disabled initially
+        # (API Gateway account settings need to be configured first)
         self.api = apigw.RestApi(
             self,
             "RestApi",
@@ -81,9 +94,10 @@ class ApiGatewayConstruct(Construct):
                 stage_name="prod",
                 throttling_rate_limit=100,
                 throttling_burst_limit=200,
-                logging_level=apigw.MethodLoggingLevel.INFO,
-                data_trace_enabled=True,
+                # Logging disabled to avoid CloudWatch Logs role requirement
+                # Enable after running: aws apigateway update-account --patch-operations op=replace,path=/cloudwatchRoleArn,value=<role-arn>
             ),
+            cloud_watch_role=False,  # Don't automatically set CloudWatch role
             default_cors_preflight_options=apigw.CorsOptions(
                 allow_origins=apigw.Cors.ALL_ORIGINS,
                 allow_methods=["POST", "OPTIONS"],
@@ -171,4 +185,11 @@ class ApiGatewayConstruct(Construct):
             "InvokeEndpoint",
             value=f"{self.api.url}invoke",
             description="Full endpoint URL for invoking the model",
+        )
+
+        CfnOutput(
+            self,
+            "ApiGatewayLogsRoleArn",
+            value=api_gateway_logs_role.role_arn,
+            description="API Gateway CloudWatch Logs Role ARN (optional: set in account settings for logging)",
         )
