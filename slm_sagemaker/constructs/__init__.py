@@ -1,1 +1,1 @@
-"""Constructs package for SageMaker Serverless Endpoint."""
+"""Constructs package for SageMaker Real-Time Endpoint."""

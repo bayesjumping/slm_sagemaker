@@ -5,20 +5,20 @@ from slm_sagemaker.constructs.api_construct import ApiGatewayConstruct
 
 
 class SlmSagemakerStack(Stack):
-    """Main CDK stack for SageMaker Serverless LLM Endpoint with API Gateway."""
+    """Main CDK stack for SageMaker Real-Time LLM Endpoint with API Gateway."""
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Deploy SageMaker Serverless Endpoint with Hermes-3-Llama-3.1-8B
-        # Note: Default quota is 3GB. Request increase via AWS Service Quotas if needed.
+        # Deploy SageMaker Real-Time Endpoint with Hermes-3-Llama-3.1-8B
+        # Using ml.g5.xlarge instance with GPU (24GB GPU memory, 4 vCPUs)
         sagemaker_construct = SageMakerServerlessConstruct(
             self,
             "SageMakerServerless",
             model_name="Hermes-3-Llama-3-1-8B",
             hf_model_id="NousResearch/Hermes-3-Llama-3.1-8B",
-            memory_size_in_mb=3072,  # 3GB - default AWS quota limit
-            max_concurrency=10,
+            instance_type="ml.g5.xlarge",  # GPU instance - ~$1.01/hour
+            initial_instance_count=1,
         )
 
         # Deploy API Gateway with Lambda integration

@@ -22,7 +22,7 @@ SlmSagemakerStack(
     app,
     "SlmSagemakerStack",
     env=env,
-    description=f"SageMaker Serverless LLM Endpoint with API Gateway in {aws_region}"
+    description=f"SageMaker Real-Time LLM Endpoint with API Gateway in {aws_region}"
 )
 
 app.synth()

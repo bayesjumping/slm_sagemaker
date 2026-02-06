@@ -1,4 +1,4 @@
-"""Lambda function to invoke SageMaker Serverless Endpoint."""
+"""Lambda function to invoke SageMaker Real-Time Endpoint."""
 
 import json
 import os

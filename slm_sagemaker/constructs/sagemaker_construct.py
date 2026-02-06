@@ -1,4 +1,4 @@
-"""SageMaker Serverless Endpoint Construct for Hermes-3-Llama-3.1-8B model."""
+"""SageMaker Real-Time Endpoint Construct for Hermes-3-Llama-3.1-8B model."""
 
 from aws_cdk import (
     aws_sagemaker as sagemaker,
@@ -9,7 +9,7 @@ from constructs import Construct
 
 
 class SageMakerServerlessConstruct(Construct):
-    """Construct for deploying a SageMaker Serverless Inference Endpoint with TGI."""
+    """Construct for deploying a SageMaker Real-Time Inference Endpoint with TGI."""
 
     def __init__(
         self,
@@ -17,20 +17,20 @@ class SageMakerServerlessConstruct(Construct):
         construct_id: str,
         model_name: str = "Hermes-3-Llama-3.1-8B",
         hf_model_id: str = "NousResearch/Hermes-3-Llama-3.1-8B",
-        memory_size_in_mb: int = 3072,  # 3GB - default AWS quota (max 6GB after quota increase)
-        max_concurrency: int = 10,
+        instance_type: str = "ml.g5.xlarge",  # GPU instance with 24GB GPU memory
+        initial_instance_count: int = 1,
         **kwargs,
     ) -> None:
         """
-        Initialize the SageMaker Serverless Endpoint construct.
+        Initialize the SageMaker Real-Time Endpoint construct.
 
         Args:
             scope: CDK scope
             construct_id: Construct ID
             model_name: Name for the SageMaker model
             hf_model_id: HuggingFace model ID
-            memory_size_in_mb: Memory allocation (default 3072, max 6144 after quota increase)
-            max_concurrency: Maximum concurrent invocations (1-200)
+            instance_type: Instance type (ml.g5.xlarge, ml.g5.2xlarge, etc.)
+            initial_instance_count: Number of instances (default: 1)
         """
         super().__init__(scope, construct_id, **kwargs)
 
@@ -72,7 +72,7 @@ class SageMakerServerlessConstruct(Construct):
             model_name=model_name,
         )
 
-        # Create Serverless Endpoint Configuration
+        # Create Real-Time Endpoint Configuration
         self.endpoint_config = sagemaker.CfnEndpointConfig(
             self,
             "EndpointConfig",
@@ -81,10 +81,9 @@ class SageMakerServerlessConstruct(Construct):
                 sagemaker.CfnEndpointConfig.ProductionVariantProperty(
                     model_name=self.model.model_name,
                     variant_name="AllTraffic",
-                    serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
-                        memory_size_in_mb=memory_size_in_mb,
-                        max_concurrency=max_concurrency,
-                    ),
+                    instance_type=instance_type,
+                    initial_instance_count=initial_instance_count,
+                    initial_variant_weight=1.0,
                 )
             ],
         )
@@ -107,5 +106,5 @@ class SageMakerServerlessConstruct(Construct):
             self,
             "EndpointName",
             value=self.endpoint_name,
-            description="SageMaker Serverless Endpoint Name",
+            description="SageMaker Real-Time Endpoint Name",
         )

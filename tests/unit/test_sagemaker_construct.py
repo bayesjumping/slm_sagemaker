@@ -1,4 +1,4 @@
-"""Unit tests for SageMaker Serverless Construct."""
+"""Unit tests for SageMaker Real-Time Construct."""
 
 import aws_cdk as cdk
 from aws_cdk.assertions import Template, Match
@@ -32,15 +32,15 @@ def test_sagemaker_construct_creates_model():
 
 
 def test_sagemaker_construct_creates_endpoint_config():
-    """Test that endpoint config is created with serverless configuration."""
+    """Test that endpoint config is created with real-time configuration."""
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
     
     construct = SageMakerServerlessConstruct(
         stack,
         "TestSageMaker",
-        memory_size_in_mb=6144,
-        max_concurrency=10,
+        instance_type="ml.g5.2xlarge",
+        initial_instance_count=2,
     )
     
     template = Template.from_stack(stack)
@@ -48,16 +48,14 @@ def test_sagemaker_construct_creates_endpoint_config():
     # Verify endpoint config exists
     template.resource_count_is("AWS::SageMaker::EndpointConfig", 1)
     
-    # Verify serverless config
+    # Verify real-time instance config
     template.has_resource_properties(
         "AWS::SageMaker::EndpointConfig",
         {
             "ProductionVariants": [
                 Match.object_like({
-                    "ServerlessConfig": {
-                        "MemorySizeInMB": 6144,
-                        "MaxConcurrency": 10,
-                    }
+                    "InstanceType": "ml.g5.2xlarge",
+                    "InitialInstanceCount": 2,
                 })
             ]
         }

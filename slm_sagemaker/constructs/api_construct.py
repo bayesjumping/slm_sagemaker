@@ -89,7 +89,7 @@ class ApiGatewayConstruct(Construct):
             self,
             "RestApi",
             rest_api_name=api_name,
-            description="API Gateway for SageMaker Serverless LLM Endpoint",
+            description="API Gateway for SageMaker Real-Time LLM Endpoint",
             deploy_options=apigw.StageOptions(
                 stage_name="prod",
                 throttling_rate_limit=100,

@@ -1,13 +1,87 @@
-# SageMaker Serverless LLM Endpoint
+# SageMaker Real-Time LLM Endpoint
 
 [![Test and Lint](https://github.com/YOUR_USERNAME/slm_sagemaker/actions/workflows/test-and-lint.yml/badge.svg)](https://github.com/YOUR_USERNAME/slm_sagemaker/actions/workflows/test-and-lint.yml)
 
-Deploy the **NousResearch/Hermes-3-Llama-3.1-8B** model as a SageMaker Serverless Inference Endpoint with API Gateway integration and API key authentication.
+Deploy the **NousResearch/Hermes-3-Llama-3.1-8B** model as a SageMaker Real-Time Inference Endpoint with API Gateway integration and API key authentication.
+
+> **⚠️ COST WARNING**: This deployment uses a real-time ml.g5.xlarge GPU instance that runs 24/7 and costs approximately **$1.01/hour (~$730/month)**. The endpoint continues billing even when not processing requests. Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
 
 ## Architecture
 
+### System Components
+
+The following diagram illustrates the AWS components that make up this real-time LLM solution:
+
+```mermaid
+architecture-beta
+    group api(cloud)[API Layer]
+    group compute(cloud)[Compute Layer]
+    group ml(cloud)[ML Infrastructure]
+
+    service gateway(internet)[API Gateway] in api
+    service apikey(disk)[API Key] in api
+    service lambda(server)[Lambda Function] in compute
+    service sagemaker(server)[SageMaker Endpoint] in ml
+    service model(database)[Hermes 3 8B Model] in ml
+
+    gateway:R --> L:lambda
+    apikey:B --> T:gateway
+    lambda:R --> L:sagemaker
+    sagemaker:B --> T:model
+```
+
+**Component Overview:**
+- **API Gateway**: REST API with `/invoke` endpoint for client requests
+- **API Key**: Authenticates and rate-limits API requests (50 req/sec, 10k/day)
+- **Lambda Function**: Processes requests and invokes the SageMaker endpoint
+- **SageMaker Endpoint**: Real-time inference endpoint on ml.g5.xlarge GPU instance (24GB GPU memory, 4 vCPUs)
+- **Hermes-3-8B Model**: HuggingFace TGI container serving the language model
+
+### Request Flow
+
+The sequence diagram below shows how a request flows through the system from an API client to the LLM model and back:
+
+```mermaid
+sequenceDiagram
+    actor Client
+    participant API as API Gateway
+    participant Lambda as Lambda Function
+    participant SageMaker as SageMaker Endpoint
+    participant Model as Hermes-3 Model
+
+    Client->>+API: POST /invoke<br/>(x-api-key header)
+    Note over API: Validate API Key<br/>Check rate limits
+    API->>+Lambda: Invoke with payload
+    Note over Lambda: Extract prompt<br/>& parameters
+    Lambda->>+SageMaker: invoke_endpoint()
+    Note over SageMaker: Scale up if cold<br/>(0-60 seconds)
+    SageMaker->>+Model: Generate text
+    Note over Model: Process prompt<br/>with Hermes-3-8B
+    Model-->>-SageMaker: Generated response
+    SageMaker-->>-Lambda: Response JSON
+    Lambda-->>-API: Format response
+    API-->>-Client: Return generated text
+```
+
+**Request Flow Steps:**
+1. **Client Authentication**: Client sends POST request to `/invoke` with `x-api-key` header
+2. **Rate Limiting**: API Gateway validates the API key and checks throttling limits
+3. **Lambda Invocation**: API Gateway triggers the Lambda function with the request payload
+4. **Request Processing**: Lambda extracts the prompt and generation parameters (temperature, max_tokens, etc.)
+5. **SageMaker Inference**: Lambda calls `invoke_endpoint()` on the SageMaker runtime
+6. **Instance Ready**: Real-time endpoint is always running (no cold starts after initial deployment)
+7. **Text Generation**: The Hermes-3 model processes the prompt and generates a response
+8. **Response Formatting**: Lambda formats the TGI output and returns it to the client
+
+**Why Real-Time vs Serverless?**
+- Real-time endpoints use GPU instances (ml.g5.xlarge with 24GB GPU memory)
+- No 3GB/6GB memory quota limitations
+- Consistent low-latency inference (no cold starts after deployment)
+- Better for production workloads with steady traffic
+- Cost: ~$1.01/hour (~$730/month) vs serverless pay-per-request pricing
+
 This CDK project deploys:
-- **SageMaker Serverless Endpoint** running Hermes-3-Llama-3.1-8B with TGI (Text Generation Inference)
+- **SageMaker Real-Time Endpoint** running Hermes-3-Llama-3.1-8B with TGI (Text Generation Inference) on ml.g5.xlarge
 - **API Gateway** REST API with Lambda integration
 - **Lambda function** to invoke the SageMaker endpoint
 - **API Key authentication** with usage plans and throttling
@@ -141,7 +215,7 @@ curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/prod/invoke \
 slm_sagemaker/
 ├── slm_sagemaker/
 │   ├── constructs/
-│   │   ├── sagemaker_construct.py    # SageMaker serverless endpoint
+│   │   ├── sagemaker_construct.py    # SageMaker real-time endpoint
 │   │   └── api_construct.py           # API Gateway + Lambda
 │   └── slm_sagemaker_stack.py         # Main CDK stack
 ├── lambda/
@@ -154,7 +228,7 @@ slm_sagemaker/
 │       └── test_slm_sagemaker_stack.py
 ├── .github/
 │   └── workflows/
-│       └── test-and-deploy.yml         # CI/CD pipeline
+│       └── test-and-lint.yml           # CI/CD pipeline
 ├── Makefile                            # Build automation
 ├── requirements.txt                    # Python dependencies
 └── requirements-dev.txt                # Development dependencies
@@ -210,9 +284,14 @@ make destroy       # Destroy the stack
 
 Configure in [slm_sagemaker/slm_sagemaker_stack.py](slm_sagemaker/slm_sagemaker_stack.py):
 
-- `memory_size_in_mb`: 1024-6144 (max 6GB for serverless)
-- `max_concurrency`: 1-200 concurrent invocations
+- `instance_type`: GPU instance type (ml.g5.xlarge, ml.g5.2xlarge, ml.g5.4xlarge, etc.)
+- `initial_instance_count`: Number of instances (1-10+)
 - `hf_model_id`: HuggingFace model ID
+
+**Instance Types:**
+- `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory, ~$1.01/hour
+- `ml.g5.2xlarge`: 8 vCPUs, 24GB GPU memory, ~$1.52/hour  
+- `ml.g5.4xlarge`: 16 vCPUs, 24GB GPU memory, ~$2.54/hour
 
 ### API Gateway
 
@@ -224,10 +303,11 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 
 ## Cost Considerations
 
-**SageMaker Serverless Endpoint:**
-- Billed per inference duration (compute time + model load time)
-- No charges when idle
-- First invocation has cold start latency (~30-60s)
+**SageMaker Real-Time Endpoint:**
+- Billed per hour while endpoint is running (always-on)
+- ml.g5.xlarge: ~$1.01/hour (~$730/month)
+- No cold starts after initial deployment
+- Can stop/start endpoint to reduce costs when not in use
 
 **API Gateway:**
 - $3.50 per million API calls
@@ -237,38 +317,28 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - Minimal cost for invocation wrapper
 - Included in AWS Free Tier (1M requests/month)
 
-**Estimated cost:** $0.50-$5/day for moderate usage (100-1000 inferences)
+**Estimated monthly cost:** ~$730-$800/month for 24/7 operation with ml.g5.xlarge
+
+To reduce costs:
+- Delete the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
+- Use smaller instance if sufficient (ml.g5.xlarge is minimum for GPU inference)
+- Consider serverless endpoints for sporadic usage (requires quota increase to 6GB)
 
 ## Troubleshooting
 
-### Service Quota Error (ResourceLimitExceeded)
+### Insufficient Memory Error (Real-Time Endpoint)
 
-**Error:** `The account-level service limit 'Memory size in MB per serverless endpoint' is 3072 MBs...`
+**Error:** `Ping failed due to insufficient memory`
 
-**Solution:** The default AWS quota for SageMaker Serverless endpoints is 3GB (3072 MB). The stack has been configured to use 3GB by default.
+**Solution:** The 8B parameter model requires more memory than available. This typically happens with:
+- CPU instances (use GPU instances instead)
+- Insufficient container memory configuration
 
-If you need 6GB for better performance:
+**Fix:** The stack now uses `ml.g5.xlarge` with 24GB GPU memory, which is sufficient for the Hermes-3-8B model.
 
-1. **Request a quota increase:**
-   ```bash
-   # Go to AWS Service Quotas console
-   # Navigate to: AWS Services > Amazon SageMaker > Memory size in MB per serverless endpoint
-   # Request increase from 3072 to 6144
-   ```
-
-2. **Or use AWS CLI:**
-   ```bash
-   aws service-quotas request-service-quota-increase \
-     --service-code sagemaker \
-     --quota-code L-A3FAAAA4 \
-     --desired-value 6144 \
-     --region eu-west-2
-   ```
-
-3. **After approval, update the stack:**
-   - Edit `slm_sagemaker/slm_sagemaker_stack.py`
-   - Change `memory_size_in_mb=3072` to `memory_size_in_mb=6144`
-   - Redeploy: `make deploy PROFILE=ml-sage REGION=eu-west-2`
+If you still encounter issues:
+- Try `ml.g5.2xlarge` or `ml.g5.4xlarge` for more resources
+- Check CloudWatch Logs for container startup errors
 
 ### API Gateway CloudWatch Logs Error
 
@@ -374,5 +444,9 @@ This project is licensed under the MIT License.
  * `cdk deploy`      deploy this stack to your default AWS account/region
  * `cdk diff`        compare deployed stack with current state
  * `cdk docs`        open CDK documentation
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 Enjoy!
