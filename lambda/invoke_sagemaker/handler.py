@@ -55,14 +55,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "temperature": parameters.get("temperature", 0.7),
             "top_p": parameters.get("top_p", 0.9),
             "do_sample": parameters.get("do_sample", True),
+            "return_full_text": False,  # Only return generated tokens, not prompt
         }
 
+        # Format prompt with ChatML template for TinyLlama-1.1B-Chat
+        # This model expects: <|system|>...<|user|>...<|assistant|>
+        formatted_prompt = f"<|system|>\nYou are a helpful AI assistant.</s>\n<|user|>\n{prompt}</s>\n<|assistant|>\n"
+
         # Prepare payload for TGI endpoint
-        # Send prompt directly without ChatML formatting - TGI will handle it
         payload = {
-            "inputs": prompt,
+            "inputs": formatted_prompt,
             "parameters": generation_config,
         }
+
+        print(payload)
 
         # Invoke SageMaker endpoint
         response = sagemaker_runtime.invoke_endpoint(

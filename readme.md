@@ -384,6 +384,7 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - Included in AWS Free Tier (1M requests/month)
 
 **Estimated monthly cost:** 
+- **Real-Time (ml.g5.xlarge)**: ~$1,015/month for 24/7 operation (current)
 - **Real-Time (ml.g4dn.xlarge)**: ~$530/month for 24/7 operation
 - **Real-Time (ml.g4dn.2xlarge)**: ~$756/month for 24/7 operation
 - **Serverless**: Variable, ~$50-150/month for moderate usage
@@ -392,8 +393,8 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - **Use serverless for dev/test**: Set `CONFIG.endpoint.type = EndpointType.SERVERLESS` in [config.py](config.py)
 - **Use serverless for low traffic**: <100 requests/day = significant savings
 - **Delete when not in use**: `make destroy PROFILE=ml-sage REGION=eu-west-2` (most effective)
-- **ml.g4dn.xlarge for production**: Balances cost with performance
-- **Upgrade to ml.g4dn.2xlarge**: If you need 32GB GPU memory for larger models
+- **ml.g5.xlarge for production**: Better GPU (A10G) with 24GB memory (current)
+- **ml.g4dn.xlarge for cost savings**: Lower cost option with 16GB GPU memory
 
 ## Troubleshooting
 
