@@ -2,7 +2,11 @@
 
 import aws_cdk as cdk
 from aws_cdk.assertions import Template, Match
-from slm_sagemaker.constructs.sagemaker_construct import SageMakerServerlessConstruct
+from slm_sagemaker.constructs.sagemaker_construct import SageMakerEndpointConstruct
+
+
+# Test TGI image URI
+TEST_TGI_IMAGE_URI = "763104351884.dkr.ecr.{region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.3.0-tgi2.3.1-gpu-py310-cu121-ubuntu22.04"
 
 
 def test_sagemaker_construct_creates_model():
@@ -10,11 +14,15 @@ def test_sagemaker_construct_creates_model():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
 
-    _construct = SageMakerServerlessConstruct(
+    _construct = SageMakerEndpointConstruct(
         stack,
         "TestSageMaker",
         model_name="TestModel",
         hf_model_id="NousResearch/Hermes-3-Llama-3.1-8B",
+        endpoint_type="real-time",
+        tgi_image_uri=TEST_TGI_IMAGE_URI,
+        instance_type="ml.g5.xlarge",
+        initial_instance_count=1,
     )
 
     template = Template.from_stack(stack)
@@ -36,9 +44,13 @@ def test_sagemaker_construct_creates_endpoint_config():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
 
-    _construct = SageMakerServerlessConstruct(
+    _construct = SageMakerEndpointConstruct(
         stack,
         "TestSageMaker",
+        model_name="TestModel",
+        hf_model_id="test/model",
+        endpoint_type="real-time",
+        tgi_image_uri=TEST_TGI_IMAGE_URI,
         instance_type="ml.g5.2xlarge",
         initial_instance_count=2,
     )
@@ -69,9 +81,15 @@ def test_sagemaker_construct_creates_endpoint():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
 
-    _construct = SageMakerServerlessConstruct(
+    _construct = SageMakerEndpointConstruct(
         stack,
         "TestSageMaker",
+        model_name="TestModel",
+        hf_model_id="test/model",
+        endpoint_type="real-time",
+        tgi_image_uri=TEST_TGI_IMAGE_URI,
+        instance_type="ml.g5.xlarge",
+        initial_instance_count=1,
     )
 
     template = Template.from_stack(stack)
@@ -85,9 +103,15 @@ def test_sagemaker_construct_creates_iam_role():
     app = cdk.App()
     stack = cdk.Stack(app, "TestStack")
 
-    _construct = SageMakerServerlessConstruct(
+    _construct = SageMakerEndpointConstruct(
         stack,
         "TestSageMaker",
+        model_name="TestModel",
+        hf_model_id="test/model",
+        endpoint_type="real-time",
+        tgi_image_uri=TEST_TGI_IMAGE_URI,
+        instance_type="ml.g5.xlarge",
+        initial_instance_count=1,
     )
 
     template = Template.from_stack(stack)

@@ -103,16 +103,10 @@ class ApiGatewayConstruct(Construct):
             ),
         )
 
-        # Create Lambda integration
+        # Create Lambda integration (proxy mode passes request/response directly)
         lambda_integration = apigw.LambdaIntegration(
             self.lambda_function,
-            proxy=False,
-            integration_responses=[
-                apigw.IntegrationResponse(
-                    status_code="200",
-                    response_templates={"application/json": ""},
-                )
-            ],
+            proxy=True,
         )
 
         # Create /invoke resource
@@ -123,12 +117,6 @@ class ApiGatewayConstruct(Construct):
             "POST",
             lambda_integration,
             api_key_required=True,
-            method_responses=[
-                apigw.MethodResponse(
-                    status_code="200",
-                    response_models={"application/json": apigw.Model.EMPTY_MODEL},
-                )
-            ],
         )
 
         # Create API Key

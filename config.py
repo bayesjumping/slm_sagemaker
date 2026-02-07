@@ -57,6 +57,7 @@ class DeploymentConfig:
 
     model: ModelConfig
     endpoint: EndpointConfig
+    tgi_image_uri: str
     api: ApiConfig
 
 
@@ -69,7 +70,7 @@ CONFIG = DeploymentConfig(
     endpoint=EndpointConfig(
         type=EndpointType.REAL_TIME,
         real_time=RealTimeEndpointConfig(
-            instance_type="ml.g4dn.xlarge",
+            instance_type="ml.g5.xlarge",
             initial_instance_count=1,
         ),
         serverless=ServerlessEndpointConfig(
@@ -77,6 +78,7 @@ CONFIG = DeploymentConfig(
             max_concurrency=10,
         ),
     ),
+    tgi_image_uri="763104351884.dkr.ecr.{region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.1.1-tgi2.0.1-gpu-py310-cu121-ubuntu22.04",
     api=ApiConfig(
         name="TinyLlama-LLM-API",
     ),

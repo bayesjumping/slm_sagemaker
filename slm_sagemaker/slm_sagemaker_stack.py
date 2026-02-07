@@ -1,6 +1,6 @@
 from aws_cdk import Stack
 from constructs import Construct
-from slm_sagemaker.constructs.sagemaker_construct import SageMakerServerlessConstruct
+from slm_sagemaker.constructs.sagemaker_construct import SageMakerEndpointConstruct
 from slm_sagemaker.constructs.api_construct import ApiGatewayConstruct
 from config import DeploymentConfig, EndpointType
 
@@ -14,22 +14,24 @@ class SlmSagemakerStack(Stack):
         # Deploy SageMaker Endpoint (Real-Time or Serverless) with configured model
         # Model and endpoint configuration is loaded from config.py
         if config.endpoint.type == EndpointType.SERVERLESS:
-            _sagemaker_construct = SageMakerServerlessConstruct(
+            _sagemaker_construct = SageMakerEndpointConstruct(
                 self,
-                "SageMakerServerless",
+                "SageMakerEndpoint",
                 model_name=config.model.name,
                 hf_model_id=config.model.hf_model_id,
                 endpoint_type="serverless",
+                tgi_image_uri=config.tgi_image_uri,
                 memory_size_in_mb=config.endpoint.serverless.memory_size_in_mb,
                 max_concurrency=config.endpoint.serverless.max_concurrency,
             )
         else:
-            _sagemaker_construct = SageMakerServerlessConstruct(
+            _sagemaker_construct = SageMakerEndpointConstruct(
                 self,
-                "SageMakerServerless",
+                "SageMakerEndpoint",
                 model_name=config.model.name,
                 hf_model_id=config.model.hf_model_id,
                 endpoint_type="real-time",
+                tgi_image_uri=config.tgi_image_uri,
                 instance_type=config.endpoint.real_time.instance_type,
                 initial_instance_count=config.endpoint.real_time.initial_instance_count,
             )

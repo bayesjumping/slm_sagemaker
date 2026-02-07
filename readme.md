@@ -2,9 +2,9 @@
 
 [![Test and Lint](https://github.com/bayesjumping/slm_sagemaker/actions/workflows/test-and-lint.yml/badge.svg)](https://github.com/bayesjumping/slm_sagemaker/actions/workflows/test-and-lint.yml)
 
-Deploy the **NousResearch/Hermes-3-Llama-3.1-8B** model as a SageMaker Real-Time Inference Endpoint with API Gateway integration and API key authentication.
+Deploy the **TinyLlama/TinyLlama-1.1B-Chat-v1.0** model as a SageMaker Real-Time Inference Endpoint with API Gateway integration and API key authentication.
 
-> **⚠️ COST WARNING**: This deployment uses a real-time ml.g4dn.2xlarge GPU instance that runs 24/7 and costs approximately **$1.05/hour (~$756/month)**. The endpoint continues billing even when not processing requests. The larger instance with 32GB GPU memory is required for 8B models. Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
+> **⚠️ COST WARNING**: This deployment uses a real-time ml.g5.xlarge GPU instance that runs 24/7 and costs approximately **$1.41/hour (~$1,015/month)**. The endpoint continues billing even when not processing requests. The ml.g5.xlarge instance has 24GB GPU memory (NVIDIA A10G). Remember to destroy the stack when not in use: `make destroy PROFILE=ml-sage REGION=eu-west-2`
 
 ## Architecture
 
@@ -22,7 +22,7 @@ architecture-beta
     service apikey(disk)[API Key] in api
     service lambda(server)[Lambda Function] in compute
     service sagemaker(server)[SageMaker Endpoint] in ml
-    service model(database)[Hermes 3 8B Model] in ml
+    service model(database)[TinyLlama 1.1B Model] in ml
 
     gateway:R --> L:lambda
     apikey:B --> T:gateway
@@ -34,8 +34,8 @@ architecture-beta
 - **API Gateway**: REST API with `/invoke` endpoint for client requests
 - **API Key**: Authenticates and rate-limits API requests (50 req/sec, 10k/day)
 - **Lambda Function**: Processes requests and invokes the SageMaker endpoint
-- **SageMaker Endpoint**: Real-time inference endpoint on ml.g4dn.2xlarge GPU instance (32GB GPU memory, Tesla T4, 4-bit quantized)
-- **Hermes-3-8B Model**: HuggingFace TGI container serving the language model
+- **SageMaker Endpoint**: Real-time inference endpoint on ml.g5.xlarge GPU instance (24GB GPU memory, NVIDIA A10G)
+- **TinyLlama-1.1B Model**: HuggingFace TGI container serving the language model
 
 ### Request Flow
 
@@ -47,7 +47,7 @@ sequenceDiagram
     participant API as API Gateway
     participant Lambda as Lambda Function
     participant SageMaker as SageMaker Endpoint
-    participant Model as Hermes-3 Model
+    participant Model as TinyLlama Model
 
     Client->>+API: POST /invoke<br/>(x-api-key header)
     Note over API: Validate API Key<br/>Check rate limits
@@ -55,7 +55,7 @@ sequenceDiagram
     Note over Lambda: Extract prompt<br/>& parameters
     Lambda->>+SageMaker: invoke_endpoint()
     SageMaker->>+Model: Generate text
-    Note over Model: Process prompt<br/>with Hermes-3-8B
+    Note over Model: Process prompt<br/>with TinyLlama-1.1B
     Model-->>-SageMaker: Generated response
     SageMaker-->>-Lambda: Response JSON
     Lambda-->>-API: Format response
@@ -69,11 +69,11 @@ sequenceDiagram
 4. **Request Processing**: Lambda extracts the prompt and generation parameters (temperature, max_tokens, etc.)
 5. **SageMaker Inference**: Lambda calls `invoke_endpoint()` on the SageMaker runtime
 6. **Instance Ready**: Real-time endpoint is always running (no cold starts after initial deployment)
-7. **Text Generation**: The Hermes-3 model processes the prompt and generates a response
+7. **Text Generation**: The TinyLlama model processes the prompt and generates a response
 8. **Response Formatting**: Lambda formats the TGI output and returns it to the client
 
 This CDK project deploys:
-- **SageMaker Real-Time Endpoint** running Hermes-3-Llama-3.1-8B with TGI (Text Generation Inference) on ml.g4dn.xlarge
+- **SageMaker Real-Time Endpoint** running TinyLlama-1.1B-Chat with TGI (Text Generation Inference) on ml.g5.xlarge
 - **API Gateway** REST API with Lambda integration
 - **Lambda function** to invoke the SageMaker endpoint
 - **API Key authentication** with usage plans and throttling
@@ -283,7 +283,7 @@ from config import CONFIG, EndpointType
 CONFIG.endpoint.type = EndpointType.REAL_TIME  # or EndpointType.SERVERLESS
 
 # Configure real-time endpoint
-CONFIG.endpoint.real_time.instance_type = "ml.g4dn.xlarge"
+CONFIG.endpoint.real_time.instance_type = "ml.g5.xlarge"
 CONFIG.endpoint.real_time.initial_instance_count = 1
 
 # Configure serverless endpoint
@@ -291,7 +291,7 @@ CONFIG.endpoint.serverless.memory_size_in_mb = 6144
 CONFIG.endpoint.serverless.max_concurrency = 10
 
 # Change model
-CONFIG.model.hf_model_id = "NousResearch/Hermes-3-Llama-3.1-8B"
+CONFIG.model.hf_model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 ```
 
 **Configuration Classes:**
@@ -306,13 +306,13 @@ CONFIG.model.hf_model_id = "NousResearch/Hermes-3-Llama-3.1-8B"
 - `EndpointType.SERVERLESS`: Scale-to-zero endpoint (billed per invocation, has cold starts)
 
 **Real-Time Endpoint Configuration:**
-- `instance_type`: GPU instance type (ml.g4dn.xlarge, ml.g4dn.2xlarge, ml.g5.xlarge, etc.)
+- `instance_type`: GPU instance type (ml.g5.xlarge, ml.g5.2xlarge, ml.g5.12xlarge, etc.)
 - `initial_instance_count`: Number of instances (1-10+)
 
 **Real-Time Instance Types:**
-- `ml.g4dn.xlarge`: 4 vCPUs, 16GB GPU memory (Tesla T4), ~$0.736/hour ⭐ **Recommended**
+- `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory (A10G), ~$1.41/hour ⭐ **Current**
+- `ml.g4dn.xlarge`: 4 vCPUs, 16GB GPU memory (Tesla T4), ~$0.736/hour
 - `ml.g4dn.2xlarge`: 8 vCPUs, 32GB GPU memory (Tesla T4), ~$1.05/hour
-- `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory (A10G), ~$1.01/hour
 - `ml.g5.2xlarge`: 8 vCPUs, 24GB GPU memory (A10G), ~$1.52/hour
 
 **Serverless Endpoint Configuration:**
@@ -334,13 +334,13 @@ Change the model in [config.py](config.py) to deploy different models:
 from config import CONFIG
 
 # Examples of popular models
-CONFIG.model.name = "Hermes-3-Llama-3-1-8B"  # Display name
-CONFIG.model.hf_model_id = "NousResearch/Hermes-3-Llama-3.1-8B"  # HuggingFace ID
+CONFIG.model.name = "TinyLlama-1-1B-Chat"  # Display name
+CONFIG.model.hf_model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # HuggingFace ID
 ```
 
 Popular model options:
-- `"NousResearch/Hermes-3-Llama-3.1-8B"` - High quality 8B model (current)
-- `"TinyLlama/TinyLlama-1.1B-Chat-v1.0"` - Small model for testing
+- `"TinyLlama/TinyLlama-1.1B-Chat-v1.0"` - Small, efficient 1.1B model (current)
+- `"NousResearch/Hermes-3-Llama-3.1-8B"` - High quality 8B model
 - `"meta-llama/Llama-2-7b-chat-hf"` - Meta's Llama 2 model (requires HF token)
 - `"mistralai/Mistral-7B-Instruct-v0.2"` - Mistral 7B instruction model
 
@@ -417,10 +417,10 @@ This is the most common deployment error and indicates the model container faile
    aws logs describe-log-groups \
      --profile ml-sage \
      --region eu-west-2 \
-     --log-group-name-prefix /aws/sagemaker/Endpoints/Hermes
+     --log-group-name-prefix /aws/sagemaker/Endpoints/TinyLlama
    
    # Get recent logs
-   aws logs tail /aws/sagemaker/Endpoints/Hermes-3-Llama-3-1-8B-endpoint/AllTraffic \
+   aws logs tail /aws/sagemaker/Endpoints/TinyLlama-1-1B-Chat-endpoint/AllTraffic \
      --profile ml-sage \
      --region eu-west-2 \
      --follow
@@ -429,7 +429,7 @@ This is the most common deployment error and indicates the model container faile
 2. **Check Endpoint Status:**
    ```bash
    aws sagemaker describe-endpoint \
-     --endpoint-name Hermes-3-Llama-3-1-8B-endpoint \
+     --endpoint-name TinyLlama-1-1B-Chat-endpoint \
      --profile ml-sage \
      --region eu-west-2 \
      --query '{Status:EndpointStatus,Reason:FailureReason}'
@@ -472,15 +472,15 @@ make deploy PROFILE=ml-sage REGION=eu-west-2
 
 **Error:** `Ping failed due to insufficient memory`
 
-**Solution:** The 8B parameter model requires more memory than available. This typically happens with:
+**Solution:** Large models require sufficient GPU memory. This typically happens with:
 - CPU instances (use GPU instances instead)
 - Insufficient container memory configuration
 
-**Fix:** The stack now uses `ml.g4dn.xlarge` with 16GB GPU memory (Tesla T4), which is sufficient for the Hermes-3-8B model.
+**Fix:** The stack now uses `ml.g5.xlarge` with 24GB GPU memory (NVIDIA A10G), which is sufficient for models up to 8B parameters.
 
-If you still encounter issues:
-- Try `ml.g4dn.2xlarge` for more GPU memory (32GB)
-- Upgrade to `ml.g5.xlarge` or `ml.g5.2xlarge` for newer GPUs (A10G)
+If you encounter memory issues with larger models:
+- Try `ml.g5.2xlarge` for more GPU memory (48GB)
+- Use `ml.g5.12xlarge` for very large models (192GB)
 - Check CloudWatch Logs for container startup errors
 
 ### API Gateway CloudWatch Logs Error

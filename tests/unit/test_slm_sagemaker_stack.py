@@ -2,12 +2,13 @@ import aws_cdk as core
 import aws_cdk.assertions as assertions
 
 from slm_sagemaker.slm_sagemaker_stack import SlmSagemakerStack
+from config import CONFIG
 
 
 def test_stack_creates_sagemaker_resources():
     """Test that the stack creates SageMaker resources."""
     app = core.App()
-    stack = SlmSagemakerStack(app, "slm-sagemaker")
+    stack = SlmSagemakerStack(app, "slm-sagemaker", config=CONFIG)
     template = assertions.Template.from_stack(stack)
 
     # Verify SageMaker resources are created
@@ -19,7 +20,7 @@ def test_stack_creates_sagemaker_resources():
 def test_stack_creates_api_gateway():
     """Test that the stack creates API Gateway resources."""
     app = core.App()
-    stack = SlmSagemakerStack(app, "slm-sagemaker")
+    stack = SlmSagemakerStack(app, "slm-sagemaker", config=CONFIG)
     template = assertions.Template.from_stack(stack)
 
     # Verify API Gateway resources are created
@@ -32,7 +33,7 @@ def test_stack_creates_api_gateway():
 def test_stack_creates_required_iam_roles():
     """Test that the stack creates required IAM roles."""
     app = core.App()
-    stack = SlmSagemakerStack(app, "slm-sagemaker")
+    stack = SlmSagemakerStack(app, "slm-sagemaker", config=CONFIG)
     template = assertions.Template.from_stack(stack)
 
     # Verify IAM roles:

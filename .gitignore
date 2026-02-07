@@ -12,3 +12,4 @@ cdk.out
 # CDK outputs
 cdk-outputs.json
 .coverage
+notes/*

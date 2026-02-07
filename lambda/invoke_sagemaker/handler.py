@@ -39,7 +39,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             body = event.get("body", {})
 
-        # Extract prompt and parameters
+        # Extract prompt and parameters  
         prompt = body.get("prompt")
         if not prompt:
             return {
@@ -58,6 +58,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
 
         # Prepare payload for TGI endpoint
+        # Send prompt directly without ChatML formatting - TGI will handle it
         payload = {
             "inputs": prompt,
             "parameters": generation_config,
@@ -72,6 +73,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Parse response
         result = json.loads(response["Body"].read().decode())
+        
+        # Log the raw response for debugging
+        print(f"SageMaker response: {json.dumps(result)}")
 
         # TGI returns format: [{"generated_text": "..."}]
         if isinstance(result, list) and len(result) > 0:
