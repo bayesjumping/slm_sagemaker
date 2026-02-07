@@ -301,19 +301,17 @@ CONFIG.model.hf_model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 - `instance_type`: GPU instance type (ml.g5.xlarge, ml.g5.2xlarge, ml.g5.12xlarge, etc.)
 - `initial_instance_count`: Number of instances (1-10+)
 
-**Real-Time Instance Types:**
-- `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory (A10G), ~$1.41/hour ⭐ **Current**
-- `ml.g4dn.xlarge`: 4 vCPUs, 16GB GPU memory (Tesla T4), ~$0.736/hour
-- `ml.g4dn.2xlarge`: 8 vCPUs, 32GB GPU memory (Tesla T4), ~$1.05/hour
-- `ml.g5.2xlarge`: 8 vCPUs, 24GB GPU memory (A10G), ~$1.52/hour
-
 **Serverless Endpoint Configuration:**
 - `memory_size_in_mb`: Memory allocation (1024, 2048, 3072, 4096, 5120, 6144 MB)
-- Has cold start latency (~10-60 seconds) when scaling from zero
+- `max_concurrency`: Maximum concurrent invocations (1-200)
 
-**om config import CONFIG
+**HuggingFace Model Selection:**
+Change the model in [config.py](config.py) to deploy different models:
 
-# Examples of popular models
+```python
+from config import CONFIG
+
+# Popular model examples
 CONFIG.model.name = "TinyLlama-1-1B-Chat"  # Display name
 CONFIG.model.hf_model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # HuggingFace ID
 ```
@@ -407,8 +405,3 @@ make destroy PROFILE=ml-sage REGION=eu-west-2
 # Deploy with --no-rollback to debug
 AWS_REGION=eu-west-2 cdk deploy --profile ml-sage --no-rollback
 ```
-
-### API Key Issues
-
-```bash
-Enjoy!
