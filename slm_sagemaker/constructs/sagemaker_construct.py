@@ -9,7 +9,7 @@ from constructs import Construct
 
 
 class SageMakerServerlessConstruct(Construct):
-    """Construct for deploying a SageMaker Real-Time Inference Endpoint with TGI."""
+    """Construct for deploying a SageMaker Inference Endpoint (Real-Time or Serverless) with TGI."""
 
     def __init__(
         self,
@@ -17,20 +17,26 @@ class SageMakerServerlessConstruct(Construct):
         construct_id: str,
         model_name: str = "Hermes-3-Llama-3.1-8B",
         hf_model_id: str = "NousResearch/Hermes-3-Llama-3.1-8B",
-        instance_type: str = "ml.g4dn.2xlarge",  # GPU instance with 32GB GPU memory (Tesla T4) - enough for 8B models
-        initial_instance_count: int = 1,
+        endpoint_type: str = "real-time",
+        instance_type: str | None = None,
+        initial_instance_count: int | None = None,
+        memory_size_in_mb: int | None = None,
+        max_concurrency: int | None = None,
         **kwargs,
     ) -> None:
         """
-        Initialize the SageMaker Real-Time Endpoint construct.
+        Initialize the SageMaker Endpoint construct.
 
         Args:
             scope: CDK scope
             construct_id: Construct ID
             model_name: Name for the SageMaker model
             hf_model_id: HuggingFace model ID
-            instance_type: Instance type (ml.g4dn.2xlarge recommended for 8B models with quantization)
-            initial_instance_count: Number of instances (default: 1)
+            endpoint_type: Type of endpoint - 'real-time' or 'serverless'
+            instance_type: Instance type for real-time endpoints (e.g., ml.g4dn.xlarge)
+            initial_instance_count: Number of instances for real-time endpoints
+            memory_size_in_mb: Memory size for serverless endpoints (1024-6144 MB)
+            max_concurrency: Max concurrent invocations for serverless endpoints (1-200)
         """
         super().__init__(scope, construct_id, **kwargs)
 
@@ -78,20 +84,33 @@ class SageMakerServerlessConstruct(Construct):
             model_name=model_name,
         )
 
-        # Create Real-Time Endpoint Configuration
+        # Create Endpoint Configuration (Real-Time or Serverless)
+        if endpoint_type == "serverless":
+            # Serverless endpoint configuration
+            production_variant = sagemaker.CfnEndpointConfig.ProductionVariantProperty(
+                model_name=self.model.model_name,
+                variant_name="AllTraffic",
+                initial_variant_weight=1.0,
+                serverless_config=sagemaker.CfnEndpointConfig.ServerlessConfigProperty(
+                    memory_size_in_mb=memory_size_in_mb or 6144,
+                    max_concurrency=max_concurrency or 10,
+                ),
+            )
+        else:
+            # Real-time endpoint configuration
+            production_variant = sagemaker.CfnEndpointConfig.ProductionVariantProperty(
+                model_name=self.model.model_name,
+                variant_name="AllTraffic",
+                instance_type=instance_type or "ml.g4dn.xlarge",
+                initial_instance_count=initial_instance_count or 1,
+                initial_variant_weight=1.0,
+            )
+
         self.endpoint_config = sagemaker.CfnEndpointConfig(
             self,
             "EndpointConfig",
             endpoint_config_name=f"{model_name}-config",
-            production_variants=[
-                sagemaker.CfnEndpointConfig.ProductionVariantProperty(
-                    model_name=self.model.model_name,
-                    variant_name="AllTraffic",
-                    instance_type=instance_type,
-                    initial_instance_count=initial_instance_count,
-                    initial_variant_weight=1.0,
-                )
-            ],
+            production_variants=[production_variant],
         )
         self.endpoint_config.add_dependency(self.model)
 
@@ -108,9 +127,14 @@ class SageMakerServerlessConstruct(Construct):
         self.endpoint_name = self.endpoint.endpoint_name
 
         # Output endpoint name
+        endpoint_description = (
+            "SageMaker Serverless Endpoint Name"
+            if endpoint_type == "serverless"
+            else "SageMaker Real-Time Endpoint Name"
+        )
         CfnOutput(
             self,
             "EndpointName",
             value=self.endpoint_name,
-            description="SageMaker Real-Time Endpoint Name",
+            description=endpoint_description,
         )

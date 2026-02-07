@@ -220,6 +220,7 @@ slm_sagemaker/
 ├── .github/
 │   └── workflows/
 │       └── test-and-lint.yml           # CI/CD pipeline
+├── config.py                           # Typed deployment configuration
 ├── Makefile                            # Build automation
 ├── requirements.txt                    # Python dependencies
 └── requirements-dev.txt                # Development dependencies
@@ -271,19 +272,77 @@ make destroy       # Destroy the stack
 
 ## Configuration
 
-### SageMaker Endpoint
+### Endpoint Type and Model Configuration
 
-Configure in [slm_sagemaker/slm_sagemaker_stack.py](slm_sagemaker/slm_sagemaker_stack.py):
+Configure deployment settings in [config.py](config.py) using typed dataclasses:
 
-- `instance_type`: GPU instance type (ml.g5.xlarge, ml.g5.2xlarge, ml.g5.4xlarge, etc.)
+```python
+from config import CONFIG, EndpointType
+
+# Change endpoint type
+CONFIG.endpoint.type = EndpointType.REAL_TIME  # or EndpointType.SERVERLESS
+
+# Configure real-time endpoint
+CONFIG.endpoint.real_time.instance_type = "ml.g4dn.xlarge"
+CONFIG.endpoint.real_time.initial_instance_count = 1
+
+# Configure serverless endpoint
+CONFIG.endpoint.serverless.memory_size_in_mb = 6144
+CONFIG.endpoint.serverless.max_concurrency = 10
+
+# Change model
+CONFIG.model.hf_model_id = "NousResearch/Hermes-3-Llama-3.1-8B"
+```
+
+**Configuration Classes:**
+- `EndpointType`: Enum with `REAL_TIME` and `SERVERLESS` values
+- `DeploymentConfig`: Complete deployment configuration with type safety
+- `ModelConfig`: Model name and HuggingFace model ID
+- `RealTimeEndpointConfig`: Instance type and count
+- `ServerlessEndpointConfig`: Memory size and max concurrency
+
+**Endpoint Types:**
+- `EndpointType.REAL_TIME`: Always-on endpoint with dedicated instances (billed per hour, no cold starts)
+- `EndpointType.SERVERLESS`: Scale-to-zero endpoint (billed per invocation, has cold starts)
+
+**Real-Time Endpoint Configuration:**
+- `instance_type`: GPU instance type (ml.g4dn.xlarge, ml.g4dn.2xlarge, ml.g5.xlarge, etc.)
 - `initial_instance_count`: Number of instances (1-10+)
-- `hf_model_id`: HuggingFace model ID
 
-**Instance Types:**
-- `ml.g4dn.xlarge`: 4 vCPUs, 16GB GPU memory (Tesla T4), ~$0.736/hour ⭐ **Current/Recommended**
+**Real-Time Instance Types:**
+- `ml.g4dn.xlarge`: 4 vCPUs, 16GB GPU memory (Tesla T4), ~$0.736/hour ⭐ **Recommended**
 - `ml.g4dn.2xlarge`: 8 vCPUs, 32GB GPU memory (Tesla T4), ~$1.05/hour
 - `ml.g5.xlarge`: 4 vCPUs, 24GB GPU memory (A10G), ~$1.01/hour
 - `ml.g5.2xlarge`: 8 vCPUs, 24GB GPU memory (A10G), ~$1.52/hour
+
+**Serverless Endpoint Configuration:**
+- `memory_size_in_mb`: Memory allocation (1024, 2048, 3072, 4096, 5120, 6144 MB)
+- `max_concurrency`: Maximum concurrent invocations (1-200)
+
+**Serverless Pricing:**
+- Billed per invocation duration (no charge when idle)
+- ~$0.00002 per second of inference with 6GB memory
+- Approximately 60-70% cheaper for intermittent usage
+- Has cold start latency (~10-60 seconds) when scaling from zero
+
+**Model Configuration:**
+
+**HuggingFace Model Selection:**
+Change the model in [config.py](config.py) to deploy different models:
+
+```python
+from config import CONFIG
+
+# Examples of popular models
+CONFIG.model.name = "Hermes-3-Llama-3-1-8B"  # Display name
+CONFIG.model.hf_model_id = "NousResearch/Hermes-3-Llama-3.1-8B"  # HuggingFace ID
+```
+
+Popular model options:
+- `"NousResearch/Hermes-3-Llama-3.1-8B"` - High quality 8B model (current)
+- `"TinyLlama/TinyLlama-1.1B-Chat-v1.0"` - Small model for testing
+- `"meta-llama/Llama-2-7b-chat-hf"` - Meta's Llama 2 model (requires HF token)
+- `"mistralai/Mistral-7B-Instruct-v0.2"` - Mistral 7B instruction model
 
 ### API Gateway
 
@@ -295,11 +354,26 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 
 ## Cost Considerations
 
-**SageMaker Real-Time Endpoint:**
-- Billed per hour while endpoint is running (always-on)
+**Endpoint Type Comparison:**
+
+| Aspect | Real-Time | Serverless |
+|--------|-----------|------------|
+| **Billing** | Per hour (always on) | Per invocation (pay-per-use) |
+| **Cold Starts** | None (after initial deploy) | 10-60 seconds when scaling from zero |
+| **Best For** | Continuous usage, low latency | Intermittent usage, dev/test |
+| **Cost Example** | $530-756/month (24/7) | ~60-70% cheaper for <10 req/day |
+
+**Real-Time Endpoint Costs:**
 - ml.g4dn.xlarge: ~$0.736/hour (~$530/month)
+- ml.g4dn.2xlarge: ~$1.05/hour (~$756/month)
+- Billed continuously while endpoint is running
 - No cold starts after initial deployment
-- Can stop/start endpoint to reduce costs when not in use
+
+**Serverless Endpoint Costs:**
+- ~$0.00002 per second of inference with 6GB memory
+- No charge when idle (scales to zero)
+- Ideal for infrequent usage patterns (<100 requests/day)
+- Cold start delay of 10-60 seconds when inactive
 
 **API Gateway:**
 - $3.50 per million API calls
@@ -309,13 +383,17 @@ Throttling and quota limits in [slm_sagemaker/constructs/api_construct.py](slm_s
 - Minimal cost for invocation wrapper
 - Included in AWS Free Tier (1M requests/month)
 
-**Estimated monthly cost:** ~$756/month for 24/7 operation with ml.g4dn.2xlarge (with 4-bit quantization)
+**Estimated monthly cost:** 
+- **Real-Time (ml.g4dn.xlarge)**: ~$530/month for 24/7 operation
+- **Real-Time (ml.g4dn.2xlarge)**: ~$756/month for 24/7 operation
+- **Serverless**: Variable, ~$50-150/month for moderate usage
 
 **Cost Optimization:**
+- **Use serverless for dev/test**: Set `CONFIG.endpoint.type = EndpointType.SERVERLESS` in [config.py](config.py)
+- **Use serverless for low traffic**: <100 requests/day = significant savings
 - **Delete when not in use**: `make destroy PROFILE=ml-sage REGION=eu-west-2` (most effective)
-- **ml.g4dn.2xlarge with quantization**: Balances memory requirements with cost for 8B models
-- **Alternative: Use smaller model**: Try TinyLlama-1.1B with ml.g4dn.xlarge ($530/month) for testing
-- **Upgrade to ml.g5.xlarge**: If you need faster inference with 24GB GPU memory (~$730/month)
+- **ml.g4dn.xlarge for production**: Balances cost with performance
+- **Upgrade to ml.g4dn.2xlarge**: If you need 32GB GPU memory for larger models
 
 ## Troubleshooting
 
@@ -367,10 +445,10 @@ The stack is now configured with:
 
 **Option 2 - Use Smaller Model (For testing infrastructure):**
 Try a smaller, well-tested model to verify infrastructure:
-- Update `hf_model_id` in [slm_sagemaker/slm_sagemaker_stack.py](slm_sagemaker/slm_sagemaker_stack.py):
+- Update model configuration in [config.py](config.py):
   ```python
-  hf_model_id="TinyLlama/TinyLlama-1.1B-Chat-v1.0",  # Smaller test model
-  instance_type="ml.g4dn.xlarge",  # Can use smaller instance ($530/month)
+  CONFIG.model.hf_model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # Smaller test model
+  CONFIG.endpoint.real_time.instance_type = "ml.g4dn.xlarge"  # Can use smaller instance ($530/month)
   ```
 
 **Option 3 - Remove Quantization (Higher memory, faster inference):**

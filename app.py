@@ -4,6 +4,7 @@ import os
 import aws_cdk as cdk
 
 from slm_sagemaker.slm_sagemaker_stack import SlmSagemakerStack
+from config import CONFIG
 
 app = cdk.App()
 
@@ -21,6 +22,7 @@ env = (
 SlmSagemakerStack(
     app,
     "SlmSagemakerStack",
+    config=CONFIG,
     env=env,
     description=f"SageMaker Real-Time LLM Endpoint with API Gateway in {aws_region}",
 )
