@@ -4,7 +4,6 @@ import aws_cdk as cdk
 from aws_cdk.assertions import Template, Match
 from slm_sagemaker.constructs.sagemaker_construct import SageMakerEndpointConstruct
 
-
 # Test TGI image URI
 TEST_TGI_IMAGE_URI = "763104351884.dkr.ecr.{region}.amazonaws.com/huggingface-pytorch-tgi-inference:2.3.0-tgi2.3.1-gpu-py310-cu121-ubuntu22.04"
 

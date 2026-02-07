@@ -8,7 +8,9 @@ from config import DeploymentConfig, EndpointType
 class SlmSagemakerStack(Stack):
     """Main CDK stack for SageMaker Real-Time LLM Endpoint with API Gateway."""
 
-    def __init__(self, scope: Construct, construct_id: str, config: DeploymentConfig, **kwargs) -> None:
+    def __init__(
+        self, scope: Construct, construct_id: str, config: DeploymentConfig, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Deploy SageMaker Endpoint (Real-Time or Serverless) with configured model

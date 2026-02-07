@@ -39,7 +39,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             body = event.get("body", {})
 
-        # Extract prompt and parameters  
+        # Extract prompt and parameters
         prompt = body.get("prompt")
         if not prompt:
             return {
@@ -80,7 +80,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Parse response
         result = json.loads(response["Body"].read().decode())
-        
+
         # Log the raw response for debugging
         print(f"SageMaker response: {json.dumps(result)}")
 
