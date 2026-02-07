@@ -56,6 +56,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             "top_p": parameters.get("top_p", 0.9),
             "do_sample": parameters.get("do_sample", True),
             "return_full_text": False,  # Only return generated tokens, not prompt
+            "stop": ["</s>", "<|user|>", "<|system|>"],  # Stop at chat boundaries
         }
 
         # Format prompt with ChatML template for TinyLlama-1.1B-Chat
