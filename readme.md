@@ -22,7 +22,7 @@ architecture-beta
     service apikey(disk)[API Key] in api
     service lambda(server)[Lambda Function] in compute
     service sagemaker(server)[SageMaker Endpoint] in ml
-    service model(database)[TinyLlama 1.1B Model] in ml
+    service model(database)[TinyLlama Model] in ml
 
     gateway:R --> L:lambda
     apikey:B --> T:gateway
